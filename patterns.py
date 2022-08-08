@@ -288,8 +288,8 @@ class Country(object):
         for id, count in self.income_res.items():
             self.resources[id] += count
         # army
-        if fatigue:
-            fatigue -= 1
+        if self.fatigue:
+            self.fatigue -= 1
 
 
     def __eq__(self, other):

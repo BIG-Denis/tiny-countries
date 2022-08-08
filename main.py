@@ -143,19 +143,21 @@ def main(maingame_phases_count, taivan_phases_count):
             price = int(message.text)
             if price < 0:
                 bot.send_message(message.chat.id, "Положительные числа only!")
-                bot.register_next_step_handler(message, handover_4, country, res_id, res_count)
+                bot.register_next_step_handler(message, handover_5, country, res_id, res_count)
                 return
             else:
                 msg = "Передача успешна!" if price == 0 else "Ваш запрос успешно отправлен!"
                 bot.send_message(message.chat.id, msg)
-                bot.send_message(country.chat_id, f"Вам поступило предложение покупки {get_resname_by_id(res_id)} в количестве {res_count} по цене {price}\nПринять /accept")
+                if price > 0:
+                    bot.send_message(country.chat_id, f"Вам поступило предложение покупки {get_resname_by_id(res_id)} в количестве {res_count} по цене {price}\nПринять /accept")
                 country.offered_trade = Trade(players[message.chat.id], message.chat.id, country, country.chat_id, res_id, res_count, price)
                 if price == 0:
                     country.offered_trade.accept()
-                    bot.send_message(country.chat.id, f"Страна {players[message.chat.id].name} передала вам {get_resname_by_id(res_id)} в количестве {res_count} штук")
-        except:
+                    bot.send_message(country.chat_id, f"Страна {players[message.chat.id].name} передала вам {get_resname_by_id(res_id)} в количестве {res_count} штук")
+        except Exception as e:
+            print(e)
             bot.send_message(message.chat.id, "Некорректный ввод, попробуйте ещё раз...")
-            bot.register_next_step_handler(message, handover_4, country, res_id, res_count)
+            bot.register_next_step_handler(message, handover_5, country, res_id, res_count)
             return
 
 
