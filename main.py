@@ -34,8 +34,7 @@ def main(maingame_phases_count, taivan_phases_count):
             areas = [randrange(100, 400) for _ in range(3)]
             populations = [randrange(150, 500) for _ in range(3)]
             moneys = [randrange(100, 250) for _ in range(3)]
-            income_ress = make_dict3(list(range(11, 20)), 35, 60)  # REBALANCE
-            sold_costss = make_dict4x2(list(range(11, 20)) + list(range(21, 24)), 3, 15)  # REBALANCE
+            income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=5, hard_res_k=5)
             big_res_moneys = [[randrange(3, 10) for _ in range(3)] for _ in range(3)]  # rebalance?
             print(names, areas, populations, moneys, income_ress, sold_costss, big_res_moneys, sep='\n')
             print(sold_costss)
