@@ -38,6 +38,7 @@ HELP FOR ME:
     after war need to pay reparations for a few phases
 """
 
+
 resources_dict = {
     "железо" : 11,
     "еда" : 12,
@@ -58,7 +59,7 @@ def get_resname_by_id(fid: int):
     for name, id in resources_dict.items():
         if id == fid:
             return name
-    return "ошибка"
+    return None
 
 
 help_text = """
@@ -67,14 +68,14 @@ help_text = """
 /infoarmy - информация об армии
 /infores - информация о ресурсах
 /money - показать баланс
-/settax <число> - установить налоговый процент
-/build <кол-во> - построить инфраструктуру
+/settax - установить налоговый процент
+/build - построить инфраструктуру
 /skip - проголосовать за скип фазы
-/handover <страна> <ресурс> <количество> <цена> - Предложение продажи / передачи ресурсов
+/handover - Предложение продажи / передачи ресурсов
 /accept - принять торг / передачу ресурсов
-/swiss <сумма> - положить деньги на счёт в Швейцарском банке
+/swiss - положить деньги на счёт в Швейцарском банке
 /corrupt - подкупить ЦИК (+3 репутации, -500 в Швейцарском банке)
-/spy <страна> - отослать шпиона (узнать репутацию правительства, -300 в Швейцарском банке)
+/spy - отослать шпиона (узнать репутацию правительства, -300 в Швейцарском банке)
 """
 
 country_names = [
@@ -94,7 +95,8 @@ country_names = [
     "Ежиния",
     "Корь",
     "Ромия",
-    "Зерния"]
+    "Зерния",
+    "ШУЭ"]
 
 
 class Trade(object):
@@ -108,7 +110,7 @@ class Trade(object):
         self.count = count
         self.cost = cost
 
-    def accept():
+    def accept(self):
         status = self.sender.hand_over(self.to, self.res_id, self.count, self.cost)
         if status:
             self.to.offered_trade = None
@@ -130,7 +132,7 @@ class Country(object):
         self.chat_id: int  # done
         self.name: str = name  # done
         self.area: int = area  # done (war)
-        self.population: int = population  # done
+        self.population: int = population  # done (war)
         self.swiss_bank: int = 0  # done
         self.martial_law: bool = False
         self.offered_trade: Trade = None  # done
@@ -139,6 +141,7 @@ class Country(object):
         self.taivan_opinion: tuple = (31, 0)  # opinion and popularity  # LATER
         self.taivan_promoting: tuple = (31, 0)  # opinion and percent per phase  # LATER
         # army
+        self.fatigue: int = 0
         self.soldiers: int = self.population // 10
         self.temp_soldiers: int = 0
         self.force_cars: int = 10
@@ -212,8 +215,6 @@ class Country(object):
 """
 
     def hand_over(self, other, resource_id, count, cost):
-        if not cost >= 0:
-            return False
         if not self.resources[resource_id] >= count or not other.money - cost >= 0:
             return False
         self.resources[resource_id] -= count
@@ -239,6 +240,8 @@ class Country(object):
 
     def fund_swiss_bank(self, ammount: int):
         if not self.money - ammount >= 0:
+            return False
+        if ammount < 0:
             return False
         self.money -= ammount
         self.swiss_bank += ammount
@@ -284,6 +287,9 @@ class Country(object):
         # resources
         for id, count in self.income_res.items():
             self.resources[id] += count
+        # army
+        if fatigue:
+            fatigue -= 1
 
 
     def __eq__(self, other):
