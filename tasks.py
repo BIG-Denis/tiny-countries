@@ -11,11 +11,8 @@ class Task(object):
 
 
 all_tasks = [
-Task("Имейте 400 монет на счёте в Швейарском банке", lambda x: x.swiss_bank >= 400),
 Task("Имейте 500 монет на счёте в Швейарском банке", lambda x: x.swiss_bank >= 500),
-Task("Имейте 600 монет на счёте в Швейарском банке", lambda x: x.swiss_bank >= 600),
 Task("Имейте 75 инфраструктуры", lambda x: x.infrastructure >= 74),
-Task("Имейте 85 инфраструктуры", lambda x: x.infrastructure >= 85),
 Task("Имейте 100 инфраструктуры", lambda x: x.infrastructure >= 100),
 
 ]

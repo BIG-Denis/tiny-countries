@@ -31,4 +31,4 @@ def make_dict4x2(res, minx, maxx):
     return ({res[0][i] : randrange(minx, maxx) for i in range(3)},
             {res[1][i] : randrange(minx, maxx) for i in range(3)},
             {res[2][i] : randrange(minx, maxx) for i in range(3)},
-            {res[3][i] : round(randrange(minx, maxx) * 2.21) for i in range(3)})
+            {res[3][i] : round(randrange(minx, maxx) * 4) for i in range(3)})

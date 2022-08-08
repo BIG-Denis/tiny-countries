@@ -34,14 +34,13 @@ def main(maingame_phases_count, taivan_phases_count):
             areas = [randrange(100, 400) for _ in range(3)]
             populations = [randrange(150, 500) for _ in range(3)]
             moneys = [randrange(100, 250) for _ in range(3)]
-            resourcess = make_dict4(list(range(11, 20)) + list(range(21, 24)), 0, 25)
-            income_ress = make_dict3(list(range(11, 20)), 35, 60)
-            sold_costss = make_dict4x2(list(range(11, 20)) + list(range(21, 24)), 5, 25)
-            big_res_moneys = [[randrange(2, 8) for _ in range(3)] for _ in range(3)]
-            print(names, areas, populations, moneys, resourcess, income_ress, sold_costss, big_res_moneys, sep='\n')
+            income_ress = make_dict3(list(range(11, 20)), 35, 60)  # REBALANCE
+            sold_costss = make_dict4x2(list(range(11, 20)) + list(range(21, 24)), 3, 15)  # REBALANCE
+            big_res_moneys = [[randrange(3, 10) for _ in range(3)] for _ in range(3)]  # rebalance?
+            print(names, areas, populations, moneys, income_ress, sold_costss, big_res_moneys, sep='\n')
             print(sold_costss)
             for i in range(3):
-                countrys.append(Country(names[i], areas[i], populations[i], moneys[i], resourcess[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
+                countrys.append(Country(names[i], areas[i], populations[i], moneys[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
             shuffle(countrys)
             for i, key in enumerate(players.keys()):
                 players[key] = countrys[i]
@@ -133,6 +132,23 @@ def main(maingame_phases_count, taivan_phases_count):
         status = players[message.chat.id].corrupt()
         msg = "Успешно!" if status else "Не успешно!"
         bot.send_message(message.chat.id, msg)
+
+    @bot.message_handler(commands=['spy'])
+    def spy(message):
+        try:
+            arg = message.text.split()[1].lower()
+            if not self.swiss_bank - 300 >= 0:
+                bot.send_message(message.chat.id, "Не хватает денег на счету Швейцарского банка!")
+                return
+            for country in players.values():
+                if country.name.lower() == arg:
+                    bot.send_message(message.chat.id, f"Репутация правительства в Стране {country.name}: {country.gov_reputation}")
+                    if random.randrange(1, 5) == 1:
+                        bot.send_message(country.chat_id, f"В вашей стране был обнаружен Шпион из страны {players[message.chat.id].name}")
+            else:
+                bot.send_message(message.chat.id, "Такой страны не нашлось!")
+        except:
+            bot.send_message(message.chat.id, "Не удалось.")
 
     @bot.message_handler(commands=['settax'])
     def set_tax(message):

@@ -35,6 +35,7 @@ HELP FOR ME:
     occupation territiries with negative govrep gives positive govrep and backwards
     more ships - army gets on taivan faster
     import product makes +1 to govrep (fix dupe)
+    after war need to pay reparations for a few phases
 """
 
 resources_dict = {
@@ -57,6 +58,7 @@ def get_resname_by_id(fid: int):
     for name, id in resources_dict.items():
         if id == fid:
             return name
+    return "ошибка"
 
 
 help_text = """
@@ -72,6 +74,7 @@ help_text = """
 /accept - принять торг / передачу ресурсов
 /swiss <сумма> - положить деньги на счёт в Швейцарском банке
 /corrupt - подкупить ЦИК (+3 репутации, -500 в Швейцарском банке)
+/spy <страна> - отослать шпиона (узнать репутацию правительства, -300 в Швейцарском банке)
 """
 
 country_names = [
@@ -118,7 +121,6 @@ class Country(object):
                  area: int,
                  population: int,
                  money: int,
-                 resources: dict,
                  income_res: dict,
                  sold_costs: dict,
                  big_res_money: tuple):
@@ -139,22 +141,23 @@ class Country(object):
         self.temp_soldiers: int = 0
         self.force_cars: int = 10
         self.tanks: int = 5
-        self.small_planes: int = 3
-        self.big_planes: int = 0
+        self.planes: int = 1
         self.bomb_planes: int = 0
-        self.small_ships: int = 1
-        self.big_ships: int = 0
+        self.ships: int = 1
         # economy
         self.money: int = money  # done
         self.tax_perc: int = 5  # done
-        self.resources: dict = resources  # done (war)
+        self.resources: dict = {**{i : 0 for i in range(11, 20)}, **{i : 0 for i in range(21, 24)}}  # done (war)
         self.income_res: dict = income_res  # done (war)
         self.sold_costs: dict = sold_costs  # done (war? govrep?)
         self.infrastructure: int = (self.area + self.population) // 2 // 10 + 3   # infrastructure count, not costs
         # industry
-        self.steel: tuple = (0, 11, big_res_money[0])       # (count per phase, iron_id, money need)
-        self.electronic: tuple = (0, 17, big_res_money[1])  # (count per phase, copper_id, money need)
-        self.glass: tuple = (0, 18, big_res_money[2])       # (count per phase, quartz_id, money need)
+        self.steel: tuple = (11, big_res_money[0])       # (iron_id, money need)
+        self.electronic: tuple = (17, big_res_money[1])  # (copper_id, money need)
+        self.glass: tuple = (18, big_res_money[2])       # (quartz_id, money need)
+        # achievements stats
+        self.crafted: int = 0
+        self.wars: int = 0
 
     def get_info_main(self):
         return f"""
@@ -181,16 +184,14 @@ class Country(object):
 Военнослужащие: {self.soldiers if self.temp_soldiers == 0 else f'{self.soldiers + self.temp_soldiers} ({self.soldiers} + {self.temp_soldiers})'}
 Военные машины: {self.force_cars}
 Танки: {self.tanks}
-Малые самолёты: {self.small_planes}
-Большие самолёты: {self.big_planes}
+Самолёты: {self.planes}
 Бомбардировщики: {self.bomb_planes}
-Малые военные корабли: {self.small_ships}
-Большие военные корабли: {self.big_ships}
+Военные корабли: {self.ships}
 """
 
     def get_info_res(self):
         tmp1 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in self.resources.items()])
-        tmp2 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in self.income_res.items()])
+        tmp2 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in sorted(list(self.income_res.items()), key=lambda x: -x[1])])
         tmp3 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in self.sold_costs.items()])
         return f"""
 Ресурсы на складах:
@@ -201,6 +202,11 @@ class Country(object):
 
 Цены для продажи:
 {tmp3}
+
+Возможности производства:
+Сталь = железо + {self.steel[1]} монет
+Электроника = медь + {self.electronic[1]} монет
+Стекло = кварц + {self.glass[1]} монет
 """
 
     def hand_over(self, other, resource_id, count, cost):
@@ -223,9 +229,9 @@ class Country(object):
             res = (18, self.glass)
         else:
             raise Exception("resourse_id exception")
-        if not self.resources[res[1][1]] >= count or not self.money >= res[1][2]:
+        if not self.resources[res[1][0]] >= count or not self.money >= res[1][1]:
             return False
-        self.resources[res[1][1]] -= count
+        self.resources[res[1][0]] -= count
         self.resources[res[0]] += count
         return True
 
@@ -259,8 +265,10 @@ class Country(object):
         return True
 
     def phase_move(self):
+        # money
         self.swiss_bank += round(self.swiss_bank * 0.05)
         self.money += round(self.population * self.tax_perc // 35)
+        # population and govrep
         self.population += round(self.population * (randrange(80, 120) / 100) / 15) + randrange(0, self.infrastructure)
         self.gov_reputation += 1 if self.area * 1.4 >= self.population else -1
         self.gov_reputation += 5 - self.tax_perc
@@ -270,7 +278,11 @@ class Country(object):
         if self.infrastructure >= (self.area + self.population) // 2 // 10:
             self.gov_reputation += 1
         else:
-            self.gov_reputation -= 2
+            self.gov_reputation -= 3
+        # resources
+        for id, count in self.income_res.items():
+            self.resources[id] += count
+
 
     def __eq__(self, other):
         return self.name == other.name
