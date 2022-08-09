@@ -76,6 +76,7 @@ help_text = """
 /swiss - положить деньги на счёт в Швейцарском банке
 /corrupt - подкупить ЦИК (+3 репутации, -500 в Швейцарском банке)
 /spy - отослать шпиона (узнать репутацию правительства, -300 в Швейцарском банке)
+/craft - сделать сложные ресурсы
 """
 
 country_names = [
@@ -195,9 +196,9 @@ class Country(object):
 """
 
     def get_info_res(self):
-        tmp1 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in self.resources.items()])
+        tmp1 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in sorted(list(self.resources.items()), key=lambda x: -x[1])])
         tmp2 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in sorted(list(self.income_res.items()), key=lambda x: -x[1])])
-        tmp3 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in self.sold_costs.items()])
+        tmp3 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in sorted(list(self.sold_costs.items()), key=lambda x: -x[1])])
         return f"""
 Ресурсы на складах:
 {tmp1}
@@ -223,19 +224,22 @@ class Country(object):
         other.money -= cost
         return True
 
-    def craft(self, resource_id, count):
-        if resource_id == 21:
-            res = (11, self.steel)
-        elif resource_id == 22:
-            res = (17, self.electronic)
-        elif resource_id == 23:
-            res = (18, self.glass)
+    def craft(self, res_id, res_count):
+        if res_id == 21:
+            res = self.steel
+        elif res_id == 22:
+            res = self.electronic
+        elif res_id == 23:
+            res = self.glass
         else:
-            raise Exception("resourse_id exception")
-        if not self.resources[res[1][0]] >= count or not self.money >= res[1][1]:
+            raise Exception("no such res_id")
+        if not self.resources[res[0]] - res_count >= 0:
             return False
-        self.resources[res[1][0]] -= count
-        self.resources[res[0]] += count
+        if not self.money - res[1] * res_count >= 0:
+            return False
+        self.resources[res_id] += res_count
+        self.resources[res[0]] -= res_count
+        self.money -= res[1]
         return True
 
     def fund_swiss_bank(self, ammount: int):
@@ -269,6 +273,30 @@ class Country(object):
         self.infrastructure += count
         return True
 
+    def calculate_war_power(self):
+        land = 0
+        sea = 0
+        danger = 0
+        # land power
+        land += self.soldiers
+        land += int(self.temp_soldiers * 0.5)
+        land += self.force_cars * 2
+        land += self.tanks * 3
+        land += self.planes * 4
+        land += self.bomb_planes * 5
+        land //= 2**self.fatigue
+        # sea power
+        sea += self.soldiers
+        sea += int(self.temp_soldiers * 0.5)
+        sea += int(self.ships * 2.5)
+        sea //= 2**self.fatigue
+        # war danger
+        danger += self.tanks
+        danger += int(self.planes * 1.5)
+        danger += int(self.bomb_planes * 2.5)
+        # return tuple in len if 3
+        return land, sea, danger
+
     def phase_move(self):
         # money
         self.swiss_bank += round(self.swiss_bank * 0.05)
@@ -290,7 +318,6 @@ class Country(object):
         # army
         if self.fatigue:
             self.fatigue -= 1
-
 
     def __eq__(self, other):
         return self.name == other.name

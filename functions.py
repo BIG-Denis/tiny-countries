@@ -9,7 +9,7 @@ class Player_retriever(object):
         self.most_sell: list = []
         self.other: list = []
         self.production: dict = {i : False for i in range(11, 20)}
-        self.sells: dict = {i : False for i in range(11, 20)}
+        self.sells: dict = {**{i : False for i in range(11, 20)}, **{i : False for i in range(21, 24)}}
 
     def __str__(self):
         return f"{self.production}\n{self.sells}\n"
@@ -24,7 +24,7 @@ class Player_retriever(object):
             self.sells[id] = True
 
 
-def gen_income_ress(minr, maxr, mins, maxs, big_field_k, hard_res_k):
+def gen_income_ress(minr, maxr, mins, maxs, big_field_k, big_sell_k, hard_res_k):
 
     def gen():
         nonlocal ids
@@ -48,6 +48,9 @@ def gen_income_ress(minr, maxr, mins, maxs, big_field_k, hard_res_k):
         return False
 
     ids = list(range(11, 20))
+    ids_hard = list(range(21, 24))
+    shuffle(ids_hard)
+    hard_res_dict = {i : j for i, j in zip(range(3), ids_hard)}
     tmp = gen()
     while not check_all(tmp):
         tmp = gen()
@@ -63,7 +66,17 @@ def gen_income_ress(minr, maxr, mins, maxs, big_field_k, hard_res_k):
         for key, value in plr.sells.items():
             plr.sells[key] = randrange(mins, maxs)
             if value:
+                plr.sells[key] *= big_sell_k
+
+    for i, plr in zip(range(3), tmp):
+        for key, value in plr.sells.items():
+            if key in list(range(21, 24)):
                 plr.sells[key] *= hard_res_k
+        plr.sells[ids_hard[i]] *= big_sell_k
+
+    # normalize dicts
+    for plr in tmp:
+        plr.sells = {k : int(v) for k, v in plr.sells.items()}
 
     tmp1 = [elem.production for elem in tmp]
     tmp2 = [elem.sells for elem in tmp]

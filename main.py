@@ -34,10 +34,9 @@ def main(maingame_phases_count, taivan_phases_count):
             areas = [randrange(100, 400) for _ in range(3)]
             populations = [randrange(150, 500) for _ in range(3)]
             moneys = [randrange(100, 250) for _ in range(3)]
-            income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=5, hard_res_k=5)
-            big_res_moneys = [[randrange(3, 10) for _ in range(3)] for _ in range(3)]  # rebalance?
-            print(names, areas, populations, moneys, income_ress, sold_costss, big_res_moneys, sep='\n')
-            print(sold_costss)
+            income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=5, big_sell_k=4, hard_res_k=1.6)
+            big_res_moneys = [[randrange(5, 15) for _ in range(3)] for _ in range(3)]  # rebalance?
+            # print(names, areas, populations, moneys, income_ress, sold_costss, big_res_moneys, sep='\n')
             for i in range(3):
                 countrys.append(Country(names[i], areas[i], populations[i], moneys[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
             shuffle(countrys)
@@ -149,7 +148,8 @@ def main(maingame_phases_count, taivan_phases_count):
                 msg = "Передача успешна!" if price == 0 else "Ваш запрос успешно отправлен!"
                 bot.send_message(message.chat.id, msg)
                 if price > 0:
-                    bot.send_message(country.chat_id, f"Вам поступило предложение покупки {get_resname_by_id(res_id)} в количестве {res_count} по цене {price}\nПринять /accept")
+                    bot.send_message(country.chat_id,
+                    f"Страна {players[message.chat.id].name} предложила вам купить {get_resname_by_id(res_id)} в количестве {res_count} по цене {price}\nПринять /accept")
                 country.offered_trade = Trade(players[message.chat.id], message.chat.id, country, country.chat_id, res_id, res_count, price)
                 if price == 0:
                     country.offered_trade.accept()
@@ -254,6 +254,39 @@ def main(maingame_phases_count, taivan_phases_count):
             bot.send_message(message.chat.id, msg)
         except:
             bot.send_message(message.chat.id, "Не удалось!")
+
+
+    @bot.message_handler(commands=['craft'])
+    def craft_1(message):
+        bot.send_message(message.chat.id, "Какой ресурс вы хотите сделать? (Сталь, электроника, стекло)")
+        bot.register_next_step_handler(message, craft_2)
+
+    def craft_2(message):
+        if message.text.lower() == "отмена":
+            return
+        arg = message.text
+        res_id = resources_dict.get(arg)
+        if res_id is not None and res_id in list(range(20, 24)):
+            bot.send_message(message.chat.id, "Сколько ресурса вы хотите скрафтить?")
+            bot.register_next_step_handler(message, craft_3, res_id)
+        else:
+            bot.send_message(message.chat.id, "Некорректный ввод! Попробуйте ещё раз...")
+            bot.register_next_step_handler(message, craft_2)
+
+    def craft_3(message, res_id):
+        if message.text.lower() == "отмена":
+            return
+        try:
+            res_count = int(message.text)
+        except:
+            bot.send_message(message.chat.id, "Некорректный ввод! Попробуй ещё раз...")
+            bot.register_next_step_handler(message, craft_3, res_id)
+            return
+        status = players[message.chat.id].craft(res_id, res_count)
+        if status:
+            bot.send_message(message.chat.id, "Успешно!")
+        else:
+            bot.send_message(message.chat.id, "Не получилось сделать ресурсы!")
 
 
     def next_phase():
