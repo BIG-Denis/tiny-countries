@@ -68,6 +68,7 @@ help_text = """
 /infoarmy - информация об армии
 /infores - информация о ресурсах
 /money - показать баланс
+/countrys - показать список всех стран в игре
 /settax - установить налоговый процент
 /build - построить инфраструктуру
 /skip - проголосовать за скип фазы
@@ -132,6 +133,7 @@ class Country(object):
         # main
         self.chat_id: int  # done
         self.name: str = name  # done
+        self.real_name: str = None
         self.area: int = area  # done (war)
         self.population: int = population  # done (war)
         self.swiss_bank: int = 0  # done
@@ -259,11 +261,12 @@ class Country(object):
         return True
 
     def set_tax_perc(self, tax: int):
-        if tax >= 0:
-            self.tax_perc = tax
-            return True
-        else:
+        if tax < 0:
             return False
+        if tax > 100:
+            return False
+        self.tax_perc = tax
+        return True
 
     def build_infr(self, count: int):
         infr_cost = 4
@@ -291,13 +294,13 @@ class Country(object):
         sea += int(self.ships * 2.5)
         sea //= 2**self.fatigue
         # war danger
-        danger += self.tanks
-        danger += int(self.planes * 1.5)
+        danger += self.planes
+        danger += int(self.tanks * 1.5)
         danger += int(self.bomb_planes * 2.5)
         # return tuple in len if 3
         return land, sea, danger
 
-    def phase_move(self):
+    def move(self):
         # money
         self.swiss_bank += round(self.swiss_bank * 0.05)
         self.money += round(self.population * self.tax_perc // 35)
@@ -306,7 +309,7 @@ class Country(object):
         self.gov_reputation += 1 if self.area * 1.4 >= self.population else -1
         self.gov_reputation += 5 - self.tax_perc
         if self.tax_perc >= 10:
-            self.gov_reputation -= tax_perc
+            self.gov_reputation -= self.tax_perc
         self.money -= round(self.infrastructure)
         if self.infrastructure >= (self.area + self.population) // 2 // 10:
             self.gov_reputation += 1

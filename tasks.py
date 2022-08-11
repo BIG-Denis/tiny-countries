@@ -1,13 +1,13 @@
 
 class Task(object):
 
-    def __init__(self, text: str, check, weight: int = 100):
+    def __init__(self, text: str, check_func, weight: int = 100):
         self.text = text
-        self.check = check
+        self.check_func = check_func
         self.weight = weight
 
     def check(self, check_object):
-        return check(check_object)
+        return self.check_func(check_object)
 
 
 all_tasks = [

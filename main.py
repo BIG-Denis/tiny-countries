@@ -3,18 +3,20 @@ import json
 import random
 import telebot
 
+from preset import *
 from patterns import *
 from functions import *
-from random import randrange, choice, choices, shuffle
+from random import randrange, shuffle
 
 
-def main(maingame_phases_count, taivan_phases_count):
+def main():
 
     TESTING = True
-    phase = 1
+    move = 1
     skips = set()
-    countrys = []
     players = {}
+    player_names = {}
+    taivan_phase = False
 
     with open("token.json", 'r') as file:
         json_file = json.load(file)
@@ -22,34 +24,40 @@ def main(maingame_phases_count, taivan_phases_count):
 
     bot = telebot.TeleBot(token, parse_mode=False)
 
-    # game start
-    @bot.message_handler(commands=['start'])
-    def start(message):
+    if len(players.items()) == 3 if not TESTING else 1:
+        countrys = []
+        names = country_names.copy()
+        shuffle(names)
+        names = names[:3]
+        areas = [randrange(100, 400) for _ in range(3)]
+        populations = [randrange(150, 500) for _ in range(3)]
+        moneys = [randrange(100, 250) for _ in range(3)]
+        income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=5, big_sell_k=4, hard_res_k=1.6)
+        big_res_moneys = [[randrange(5, 15) for _ in range(3)] for _ in range(3)]
+        for i in range(3):
+            countrys.append(Country(names[i], areas[i], populations[i], moneys[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
+        shuffle(countrys)
+    
+
+    @bot.message_handler(commands=['joingame'])
+    def joingame(message):
         if players.get(message.chat.id) is None:
-            players[message.chat.id] = -1
-        if len(players.items()) == 3 if not TESTING else 1:
-            names = country_names.copy()
-            shuffle(names)
-            names = names[:3]
-            areas = [randrange(100, 400) for _ in range(3)]
-            populations = [randrange(150, 500) for _ in range(3)]
-            moneys = [randrange(100, 250) for _ in range(3)]
-            income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=5, big_sell_k=4, hard_res_k=1.6)
-            big_res_moneys = [[randrange(5, 15) for _ in range(3)] for _ in range(3)]  # rebalance?
-            # print(names, areas, populations, moneys, income_ress, sold_costss, big_res_moneys, sep='\n')
-            for i in range(3):
-                countrys.append(Country(names[i], areas[i], populations[i], moneys[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
-            shuffle(countrys)
+            players[message.chat.id] = 1
+            bot.send_message(message.chat.id, "Вы зарестрированы на игру.")
+        else:
+            bot.send_message(message.chat.id, "Вы уже зарестрированы на игру!")
+            return
+        if len(players) == 3 if not TESTING else 1:
             for i, key in enumerate(players.keys()):
                 players[key] = countrys[i]
-                countrys[i].chat_id = key
-            for chat_id in players.keys():
-                bot.send_message(chat_id, "Игра началась!")
+            for key in players.keys():
+                bot.send_message(key, "Игра началась!")
 
 
     @bot.message_handler(commands=['help', 'h'])
     def help_msg(message):
-        bot.send_message(message.chat.id, help_text)
+        msg = help_text if players.get(message.chat.id) is not None else "Давайте сначала дождёмся начала игры."
+        bot.send_message(message.chat.id, msg)
 
 
     @bot.message_handler(commands=['infomain', 'info'])
@@ -70,15 +78,20 @@ def main(maingame_phases_count, taivan_phases_count):
     @bot.message_handler(commands=['money', 'balance'])
     def info_msg(message):
         bot.send_message(message.chat.id, players[message.chat.id].get_info_money())
+    
+    
+    @bot.message_handler(commands=['countrys'])
+    def countrys_msg(message):
+        bot.send_message(message.chat.id, 'Все страны в игре:\n' + "\n".join([val.name for val in players.values()]))
 
 
     @bot.message_handler(commands=['skip', 'next'])
     def skip_msg(message):
         skips.add(message.chat.id)
         if len(skips) < len(players):
-            bot.send_message(message.chat.id, f"Ваш голос учтён! За скип голосует уже {len(skips)} / {players_count} игроков.")
+            bot.send_message(message.chat.id, f"Ваш голос учтён! За скип голосует уже {len(skips)} / {len(players)} игроков.")
         else:
-            next_phase()
+            next_move()
 
 
     @bot.message_handler(commands=['handover'])
@@ -210,12 +223,13 @@ def main(maingame_phases_count, taivan_phases_count):
         if message.text.lower() == "отмена":
             return
         arg = message.text
-        if not players[message.chat.id].swiss_bank - 300 >= 0:
+        if not players[message.chat.id].swiss_bank - spy_cost >= 0:
             bot.send_message(message.chat.id, "Не хватает денег на счету Швейцарского банка!")
             return
         for country in players.values():
             if country.name.lower() == arg.lower():
                 bot.send_message(message.chat.id, f"Репутация правительства в Стране {country.name}: {country.gov_reputation}")
+                players[message.chat.id].swiss_bank -= spy_cost
                 if random.randrange(0, 100+1) <= 40:
                     bot.send_message(country.chat_id, f"В вашей стране был обнаружен Шпион из страны {players[message.chat.id].name}")
         else:
@@ -289,16 +303,17 @@ def main(maingame_phases_count, taivan_phases_count):
             bot.send_message(message.chat.id, "Не получилось сделать ресурсы!")
 
 
-    def next_phase():
-        nonlocal phase
+    def next_move():
+        nonlocal move
         for chat_id in players.keys():
-            bot.send_message(chat_id, f"Фаза {phase} / {maingame_phases_count} первой главы!")
+            bot.send_message(chat_id, f"Ход {move} / {moves} первой главы!")
         for country in players.values():
-            country.phase_move()
-        phase += 1
+            country.move()
+        move += 1
+
 
     bot.infinity_polling()
 
 
 if __name__ == "__main__":
-    main(16, 8)
+    main()
