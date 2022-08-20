@@ -1,21 +1,20 @@
 
+import re
 import json
-import random
 import telebot
 
 from preset import *
 from patterns import *
-from functions import *
 from random import randrange, shuffle
 
 
 def main():
 
     TESTING = True
+    TESTING_PLAYERS = 1
     move = 1
     skips = set()
     players = {}
-    player_names = {}
     taivan_phase = False
 
     with open("token.json", 'r') as file:
@@ -24,7 +23,7 @@ def main():
 
     bot = telebot.TeleBot(token, parse_mode=False)
 
-    if len(players.items()) == 3 if not TESTING else 1:
+    if len(players.items()) == 3 if not TESTING else TESTING_PLAYERS:
         countrys = []
         names = country_names.copy()
         shuffle(names)
@@ -39,7 +38,14 @@ def main():
         shuffle(countrys)
     
 
-    @bot.message_handler(commands=['joingame'])
+    def get_country_by_name(name: str):
+        for country in players.values():
+            if country.name == name:
+                return country
+        return None
+    
+
+    @bot.message_handler(commands=['start', 'joingame'])
     def joingame(message):
         if players.get(message.chat.id) is None:
             players[message.chat.id] = 1
@@ -230,7 +236,7 @@ def main():
             if country.name.lower() == arg.lower():
                 bot.send_message(message.chat.id, f"Репутация правительства в Стране {country.name}: {country.gov_reputation}")
                 players[message.chat.id].swiss_bank -= spy_cost
-                if random.randrange(0, 100+1) <= 40:
+                if randrange(0, 100+1) <= 40:
                     bot.send_message(country.chat_id, f"В вашей стране был обнаружен Шпион из страны {players[message.chat.id].name}")
         else:
             bot.send_message(message.chat.id, "Такой страны не нашлось!")
@@ -301,6 +307,96 @@ def main():
             bot.send_message(message.chat.id, "Успешно!")
         else:
             bot.send_message(message.chat.id, "Не получилось сделать ресурсы!")
+    
+
+    @bot.message_handler(commands=['war'])
+    def war_1(message):
+        bot.send_message(message.chat.id, "Введите название страны на которую хотите напасть")
+        bot.register_next_step_handler(message, war_2)
+    
+    def war_2(message):
+        if message.text.lower() == "отмена":
+            return
+        country = get_country_by_name(message.text)
+        if country is None:
+            bot.send_message(message.chat.id, "Нет такой страны, попробуйте ещё раз...")
+            bot.register_next_step_handler(message, war_2)
+            return
+        if country == players[message.chat.id]:
+            bot.send_message(message.chat.id, "Нет, на самого себя напасть нельзя!")
+            return
+        war = War(players[message.chat.id], country)
+        status = war.attack()
+        if status[0] is False:
+            bot.send_message(country.chat_id, f"Ваша страна успешно отразила нападение {players[message.chat.id].name}!")
+            bot.send_message(message.chat.id, f"Страна {country.name} полностью отразила ваше нападение!")
+        else:
+            if status[1] is True:
+                bot.send_message(country.chat_id, f"Страна {players[message.chat.id].name} полность завоевала вас, вы выбываете из игры!")
+                bot.send_message(message.chat.id, f"Страна {country.name} была полность завоёвана!")
+                del players[country]
+            else:
+                bot.send_message(country.chat_id,
+                f"Страна {players[message.chat.id].name} напала на вас и причинила серьёзный урон, аннексировав часть территорий!")
+                bot.send_message(message.chat.id,
+                f"Вы аннексировали часть территорий страны {country.name} и получили другие плюшки в результате войны!")
+    
+
+    @bot.message_handler(commands=['tasks'])
+    def tasks_msg(message):
+        bot.send_message(message.chat.id, "\n\n".join([task.text for task in players[message.chat.id].tasks]))
+    
+
+    @bot.message_handler(commands=['buy'])
+    def buy_1(message):
+        bot.send_message(message.chat.id, 
+        "Введите id покупаемого объекта..\n51 - солдаты\n52 - БТРы\n53 - танки\n54 - самолёты\n55 - бомбардировщики")
+        bot.register_next_step_handler(message, buy_2)
+    
+    def buy_2(message):
+        if message.text.lower() == "отмена":
+            return
+        if message.text in list(map(str, list(range(51, 56)))):
+            bid = int(message.text)
+            bot.send_message(message.chat.id, f"Выберите опцию покупки...\n{war_buys[bid]}")
+            bot.register_next_step_handler(message, buy_3, bid)
+        else:
+            bot.send_message(message.chat.id, "Некорректный id, попробуйте снова...")
+            bot.register_next_step_handler(message, buy_2)
+    
+    def buy_3(message, bid):
+        if message.text.lower() == "отмена":
+            return
+        if message.text in list(map(str, list(range(1, 4)))):
+            opt = int(message.text)
+            bot.send_message(message.chat.id, "Введите количество...")
+            bot.register_next_step_handler(message, buy_4, bid, opt)
+        else:
+            bot.send_message(message.chat.id, "Некорректный ввод, попробуйте снова...")
+            bot.register_next_step_handler(message, buy_3, bid)
+    
+    def buy_4(message, bid, opt):
+        if message.text.lower() == "отмена":
+            return
+        try:
+            cnt = int(message.text)
+            status = players[message.chat.id].buy(bid, opt, cnt)
+            msg = "Успешно!" if status else "Не успешно!"
+            bot.send_message(message.chat.id, msg)
+        except Exception as e:
+            print(f"При покупке войны произошла ошибка {e}")
+            bot.send_message(message.chat.id, "Некорректный ввод, попробуйте снова...")
+            bot.register_next_step_handler(message, buy_4, bid, opt)
+    
+
+    # @bot.message_handler(commands=['give'])
+    # def give(message):
+    #     players[message.chat.id].money += 10_000
+    #     bot.send_message(message.chat.id, "Вам начислено 10_000 монет!!!\nНИФИГА СЕБЕ!!!!!!!!")
+    
+    # @bot.message_handler(commands=['hide'])
+    # def hide(message):
+    #     bot.send_message(message.chat.id, "Вы точно уверены, что хотите пойти на такой отчаяный шаг? Введите <ТОЧНО>, чтобы подтвердить действие")
 
 
     def next_move():
@@ -310,6 +406,26 @@ def main():
         for country in players.values():
             country.move()
         move += 1
+        if move == moves + 1:
+            final = {country.name : country.calculate_final_points() for country in players.values()}
+            final = {k : v for k, v in sorted(final.items(), key=lambda x: x[1])}
+            final = list(final.items())
+            for plr in players.keys():
+                bot.send_message(plr,
+                # f"1ое место: {final[0][0]} : {final[0][1]}")
+                # f"1ое место: {final[0][0]} : {final[0][1]} баллов\n2ое место: {final[1][0]} : {final[1][1]}")
+                f"1ое место: {final[0][0]} : {final[0][1]} баллов\n2ое место: {final[1][0]} : {final[1][1]} баллов\n3eе место: {final[2][0]} : {final[2][1]} баллов")
+                bot.send_message(plr, f"Игра закончена всем спасибо!")
+    
+    
+    @bot.message_handler(content_types=['text'])
+    def calc(message):
+        try:
+            if len(list(re.findall('[0-9]+', message.text))) < 2:
+                raise Exception()
+            bot.send_message(message.chat.id, eval(message.text.replace("^", "**")))
+        except Exception as e:
+            pass
 
 
     bot.infinity_polling()

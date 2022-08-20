@@ -1,4 +1,5 @@
 
+from math import tanh
 from random import shuffle, randrange
 
 
@@ -82,3 +83,15 @@ def gen_income_ress(minr, maxr, mins, maxs, big_field_k, big_sell_k, hard_res_k)
     tmp2 = [elem.sells for elem in tmp]
 
     return (tmp1, tmp2)
+
+
+def war_lucky_chances(x: float):
+    return max(0, tanh(0.8 * x - 0.3))
+
+
+def war_conquest(x: float):
+    return 1 / (1 + 2.71**(-0.8 * x)) - 0.5
+
+
+def war_normalize(x: float):
+    return max(0, (tanh(x - 0.7)) / 2.5)
