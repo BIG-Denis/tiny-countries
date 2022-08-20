@@ -219,6 +219,8 @@ class Trade(object):
         status = self.sender.hand_over(self.to, self.res_id, self.count, self.cost)
         if status:
             self.to.offered_trade = None
+            self.sender.traded += 1
+            self.to.traded += 1
             return True
         return False
 
@@ -350,6 +352,7 @@ class Country(object):
         self.resources[res_id] += res_count
         self.resources[res[0]] -= res_count
         self.money -= res[1]
+        self.crafted += res_count
         return True
 
     def fund_swiss_bank(self, ammount: int):
@@ -366,6 +369,7 @@ class Country(object):
             return False
         self.swiss_bank -= 500
         self.gov_reputation += 3
+        self.corrupted += 1
         return True
 
     def set_tax_perc(self, tax: int):
@@ -396,15 +400,21 @@ class Country(object):
         land += self.planes * 4
         land += self.bomb_planes * 5
         land //= 1.5**self.fatigue
+        if self.martial_law:
+            land = round(land * 1.2)
         # sea power
         sea += self.soldiers
         sea += int(self.temp_soldiers * 0.5)
         sea += int(self.ships * 2.5)
         sea //= 1.5**self.fatigue
+        if self.martial_law:
+            sea = round(sea * 1.3)
         # war danger
         danger += self.planes
         danger += int(self.tanks * 1.5)
         danger += int(self.bomb_planes * 2.5)
+        if self.martial_law:
+            danger = round(danger * 1.35)
         # return tuple in len if 3
         return land, sea, danger
     

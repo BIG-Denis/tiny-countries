@@ -234,6 +234,7 @@ def main():
             return
         for country in players.values():
             if country.name.lower() == arg.lower():
+                players[message.chat.id].spys += 1
                 bot.send_message(message.chat.id, f"Репутация правительства в Стране {country.name}: {country.gov_reputation}")
                 players[message.chat.id].swiss_bank -= spy_cost
                 if randrange(0, 100+1) <= 40:
@@ -384,7 +385,7 @@ def main():
             msg = "Успешно!" if status else "Не успешно!"
             bot.send_message(message.chat.id, msg)
         except Exception as e:
-            print(f"При покупке войны произошла ошибка {e}")
+            print(f"При покупке войны произошла ошибка {e}\n(функция buy_4)")
             bot.send_message(message.chat.id, "Некорректный ввод, попробуйте снова...")
             bot.register_next_step_handler(message, buy_4, bid, opt)
     
