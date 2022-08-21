@@ -449,14 +449,14 @@ class Country(object):
                     return False
                 else:
                     self.money -= 5 * cnt
-                    # self.population -= cnt
+                    self.population -= cnt
                     self.soldiers += cnt
             if opt == 2:
                 if self.resources[23] - cnt < 0 or self.population - cnt < 0:
                     return False
                 else:
                     self.resources[23] -= cnt
-                    # self.population -= cnt
+                    self.population -= cnt
                     self.soldiers += cnt
             return True
         elif bid in list(range(52, 56)):
