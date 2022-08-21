@@ -1,6 +1,7 @@
 
 import re
 import json
+import pickle
 import telebot
 
 from preset import *
@@ -10,8 +11,6 @@ from random import randrange, shuffle
 
 def main():
 
-    TESTING = True
-    TESTING_PLAYERS = 1
     move = 1
     skips = set()
     players = {}
@@ -23,19 +22,19 @@ def main():
 
     bot = telebot.TeleBot(token, parse_mode=False)
 
-    if len(players.items()) == 3 if not TESTING else TESTING_PLAYERS:
-        countrys = []
-        names = country_names.copy()
-        shuffle(names)
-        names = names[:3]
-        areas = [randrange(100, 400) for _ in range(3)]
-        populations = [randrange(150, 500) for _ in range(3)]
-        moneys = [randrange(100, 250) for _ in range(3)]
-        income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=5, big_sell_k=4, hard_res_k=1.6)
-        big_res_moneys = [[randrange(5, 15) for _ in range(3)] for _ in range(3)]
-        for i in range(3):
-            countrys.append(Country(names[i], areas[i], populations[i], moneys[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
-        shuffle(countrys)
+    # if len(players.items()) == 3 if not TESTING else TESTING_PLAYERS:
+    countrys = []
+    names = country_names.copy()
+    shuffle(names)
+    names = names[:3]
+    areas = [randrange(100, 400) for _ in range(3)]
+    populations = [randrange(150, 500) for _ in range(3)]
+    moneys = [randrange(100, 250) for _ in range(3)]
+    income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=5, big_sell_k=4, hard_res_k=1.6)
+    big_res_moneys = [[randrange(5, 15) for _ in range(3)] for _ in range(3)]
+    for i in range(3):
+        countrys.append(Country(names[i], areas[i], populations[i], moneys[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
+    shuffle(countrys)
     
 
     def get_country_by_name(name: str):
@@ -47,6 +46,7 @@ def main():
 
     @bot.message_handler(commands=['start', 'joingame'])
     def joingame(message):
+        nonlocal countrys
         if players.get(message.chat.id) is None:
             players[message.chat.id] = 1
             bot.send_message(message.chat.id, "Вы зарестрированы на игру.")
@@ -68,6 +68,7 @@ def main():
 
     @bot.message_handler(commands=['infomain', 'info'])
     def info_msg(message):
+        players[message.chat.id].chat_id = message.chat.id
         bot.send_message(message.chat.id, players[message.chat.id].get_info_main())
 
 
@@ -178,6 +179,37 @@ def main():
             bot.send_message(message.chat.id, "Некорректный ввод, попробуйте ещё раз...")
             bot.register_next_step_handler(message, handover_5, country, res_id, res_count)
             return
+    
+
+    @bot.message_handler(commands=['sell'])
+    def sell_1(message):
+        bot.send_message(message.chat.id, "Введите название ресурса для продажи...")
+        bot.register_next_step_handler(message, sell_2)
+    
+    def sell_2(message):
+        if message.text.lower() == "отмена":
+            return
+        if resources_dict.get(message.text.lower()) is not None:
+            res_id = resources_dict[message.text.lower()]
+            bot.send_message(message.chat.id, "Введите количество ресурса для продажи... (0 чтобы продать весь)")
+            bot.register_next_step_handler(message, sell_3, res_id)
+        else:
+            bot.send_message(message.chat.id, "Не удачно! Попробуйте снова...")
+            bot.register_next_step_handler(message, sell_2)
+    
+    def sell_3(message, res_id):
+        if message.text.lower() == "отмена":
+            return
+        try:
+            cnt = int(message.text)
+            if cnt < 0:
+                raise Exception()
+            status = players[message.chat.id].sell(res_id, cnt)
+            msg = "Успешно!" if status else "Не успешно!"
+            bot.send_message(message.chat.id, msg)
+        except Exception as e:
+            bot.send_message(message.chat.id, "Попробуй снова...")
+            bot.register_next_step_handler(message, sell_3, res_id)
 
 
     @bot.message_handler(commands=['accept'])
@@ -285,7 +317,7 @@ def main():
     def craft_2(message):
         if message.text.lower() == "отмена":
             return
-        arg = message.text
+        arg = message.text.lower()
         res_id = resources_dict.get(arg)
         if res_id is not None and res_id in list(range(20, 24)):
             bot.send_message(message.chat.id, "Сколько ресурса вы хотите скрафтить?")
@@ -401,12 +433,13 @@ def main():
 
 
     def next_move():
-        nonlocal move
+        nonlocal move, skips
         for chat_id in players.keys():
             bot.send_message(chat_id, f"Ход {move} / {moves} первой главы!")
         for country in players.values():
             country.move()
         move += 1
+        skips = set()
         if move == moves + 1:
             final = {country.name : country.calculate_final_points() for country in players.values()}
             final = {k : v for k, v in sorted(final.items(), key=lambda x: x[1])}
@@ -415,7 +448,7 @@ def main():
                 bot.send_message(plr,
                 # f"1ое место: {final[0][0]} : {final[0][1]}")
                 # f"1ое место: {final[0][0]} : {final[0][1]} баллов\n2ое место: {final[1][0]} : {final[1][1]}")
-                f"1ое место: {final[0][0]} : {final[0][1]} баллов\n2ое место: {final[1][0]} : {final[1][1]} баллов\n3eе место: {final[2][0]} : {final[2][1]} баллов")
+                f"1ое место: {final[2][0]} : {final[2][1]} баллов\n2ое место: {final[1][0]} : {final[1][1]} баллов\n3eе место: {final[0][0]} : {final[0][1]} баллов")
                 bot.send_message(plr, f"Игра закончена всем спасибо!")
     
     
@@ -427,7 +460,18 @@ def main():
             bot.send_message(message.chat.id, eval(message.text.replace("^", "**")))
         except Exception as e:
             pass
+    
 
+    @bot.message_handler(commands=['dump'])
+    def save(message):
+        with open("data.pickle", "wb") as file:
+            pickle.dump(players, file)
+    
+    @bot.message_handler(commands=['load'])
+    def load(message):
+        nonlocal players
+        with open("data.pickle", "rb") as file:
+            players = pickle.load(file)
 
     bot.infinity_polling()
 

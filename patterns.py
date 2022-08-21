@@ -80,6 +80,7 @@ help_text = """
 /countrys - показать список всех стран в игре
 /settax - установить налоговый процент
 /build - построить инфраструктуру
+/sell - продать ресурсы
 /skip - проголосовать за скип фазы
 /handover - Предложение продажи / передачи ресурсов
 /accept - принять торг / передачу ресурсов
@@ -128,6 +129,7 @@ class War(object):
     def __init__(self, atacking, defensive):
         self.attacking = atacking
         self.defensive = defensive
+        print(self.attacking.war_power(), self.defensive.war_power())
         self.army_ratio = self.attacking.war_power()[0] / self.defensive.war_power()[0]
         self.attacking.wars += 1
         self.defensive.wars += 1
@@ -139,12 +141,14 @@ class War(object):
             country.population -= temp_died
             country.temp_soldiers -= temp_died
         country.soldiers = max(0, round(country.soldiers - country.soldiers * (randrange(minp, maxp)) / 100))
-        country.force_cars = max(0, round(country.soldiers - country.soldiers * (randrange(minp, maxp)) / 100))
-        country.tanks = max(0, round(country.soldiers - country.soldiers * (randrange(minp, maxp)) / 100))
-        country.planes = max(0, round(country.soldiers - country.soldiers * (randrange(minp, maxp)) / 100))
-        country.bomb_planes = max(0, round(country.soldiers - country.soldiers * (randrange(minp, maxp)) / 100))
+        country.force_cars = max(0, round(country.force_cars - country.force_cars * (randrange(minp, maxp)) / 100))
+        country.tanks = max(0, round(country.tanks - country.tanks * (randrange(minp, maxp)) / 100))
+        country.planes = max(0, round(country.planes - country.planes * (randrange(minp, maxp)) / 100))
+        country.bomb_planes = max(0, round(country.bomb_planes - country.bomb_planes * (randrange(minp, maxp)) / 100))
     
     def check_full_def(self):
+        if self.attacking.fatigue > 2:
+            return False
         if self.attacking.war_power()[0] >= self.defensive.war_power()[0]:
             return choices((True, False), weights=(self.attacking.war_power()[0]**3, self.defensive.war_power()[0]**3), k=1)[0]
         else:
@@ -165,11 +169,10 @@ class War(object):
         print(f"lucky war : {True}, lucky_k = {lucky_k}, conquest_k = {conquest_k}")
         self.war_aftermath(self.attacking, round(15 / lucky_k), round(50 / lucky_k))
         self.war_aftermath(self.defensive, round(10 * lucky_k), round(35 * lucky_k))
+        full = False
         if self.defensive.area < 100 and lucky_war or self.defensive.area < 75:
             full = True
         self.defensive.population *= round(1 / lucky_k)
-        self.defensive.infrastructure *= round(1 / lucky_k + 4)
-        self.defensive.infrastructure = max(0, self.defensive.infrastructure)
         if not full:
             area = round(self.defensive.area * conquest_k)
             self.defensive.area -= area
@@ -197,7 +200,7 @@ class War(object):
                 self.attacking.income_res[res_id] += self.defensive.income_res[res_id]
             self.attacking.fatigue += 1
         if self.defensive.gov_reputation < 0:
-                self.attacking.gov_reputatuin += round(- self.defensive.gov_reputation / 1.55)
+                self.attacking.gov_reputation += round(- self.defensive.gov_reputation / 1.55)
         else:
             self.attacking.gov_reputation -= round(self.defensive.gov_reputation * 1.5 + 1)
         self.defensive.gov_reputauin = max(-5, self.defensive.gov_reputation - 5)
@@ -399,14 +402,14 @@ class Country(object):
         land += self.tanks * 3
         land += self.planes * 4
         land += self.bomb_planes * 5
-        land //= 1.5**self.fatigue
+        land /= 1.5**self.fatigue
         if self.martial_law:
             land = round(land * 1.2)
         # sea power
         sea += self.soldiers
         sea += int(self.temp_soldiers * 0.5)
         sea += int(self.ships * 2.5)
-        sea //= 1.5**self.fatigue
+        sea /= 1.5**self.fatigue
         if self.martial_law:
             sea = round(sea * 1.3)
         # war danger
@@ -416,7 +419,16 @@ class Country(object):
         if self.martial_law:
             danger = round(danger * 1.35)
         # return tuple in len if 3
-        return land, sea, danger
+        return round(land), round(sea), round(danger)
+    
+    def sell(self, res_id, res_cnt):
+        if not self.resources[res_id] >= res_cnt:
+            return False
+        if res_cnt == 0:
+            res_cnt = self.resources[res_id]
+        self.money += res_cnt * self.sold_costs[res_id]
+        self.resources[res_id] -= res_cnt
+        return True
     
     def add(self, bid, cnt):
         if bid == 51:
@@ -437,14 +449,14 @@ class Country(object):
                     return False
                 else:
                     self.money -= 5 * cnt
-                    self.population -= cnt
+                    # self.population -= cnt
                     self.soldiers += cnt
             if opt == 2:
                 if self.resources[23] - cnt < 0 or self.population - cnt < 0:
                     return False
                 else:
                     self.resources[23] -= cnt
-                    self.population -= cnt
+                    # self.population -= cnt
                     self.soldiers += cnt
             return True
         elif bid in list(range(52, 56)):
