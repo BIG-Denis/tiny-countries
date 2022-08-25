@@ -9,8 +9,8 @@ class Player_retriever(object):
         self.most_prod: list = []
         self.most_sell: list = []
         self.other: list = []
-        self.production: dict = {i : False for i in range(11, 20)}
-        self.sells: dict = {**{i : False for i in range(11, 20)}, **{i : False for i in range(21, 24)}}
+        self.production: dict = {i : False for i in range(11, 16+1)}
+        self.sells: dict = {**{i : False for i in range(11, 16+1)}, **{i : False for i in range(21, 24)}}
 
     def __str__(self):
         return f"{self.production}\n{self.sells}\n"
@@ -44,11 +44,11 @@ def gen_income_ress(minr, maxr, mins, maxs, big_field_k, big_sell_k, hard_res_k)
         return True
 
     def check(plr: Player_retriever):
-        if len(plr.most_prod) == len(plr.most_sell) == len(plr.other) == 3:
+        if len(plr.most_prod) == len(plr.most_sell) == len(plr.other) == 2:
             return True
         return False
 
-    ids = list(range(11, 20))
+    ids = list(range(11, 16+1))
     ids_hard = list(range(21, 24))
     shuffle(ids_hard)
     hard_res_dict = {i : j for i, j in zip(range(3), ids_hard)}

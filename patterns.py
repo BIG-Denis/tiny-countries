@@ -1,127 +1,11 @@
 
 from tasks import *
+from math import log
+from strings import *
+from wonders import *
 from functions import *
+from preset import task_cnt
 from random import randrange, choices
-
-
-"""
-RESOUSES:
-    RAW:
-        11 iron    (raw)
-        12 food    (raw)
-        13 gold    (raw)
-        14 oil     (raw)
-        15 stone   (raw)
-        16 animals (raw)
-        17 copper  (raw)
-        18 quartz  (raw)
-        19 wood    (raw)
-    TO_MAKE:
-        21 steel (iron + money)
-        22 electronic (copper + money)
-        23 glass (quartz + money)
-
-TAIVAN OPINION:
-    31 neutral
-    32 need to be free
-    33 need to be annexated to our country
-    34 need to be annexated to another country
-    35 need to destroy the Taivan
-
-WAR TECHNICS:
-    51 soldiers    | 1 peaple + 5 money OR 1 man + 1 glass
-    52 force cars  | 40 money OR 10 money + 2 steel OR 3 steel + electronic
-    53 tanks       | 65 money OR 30 money + 3 steel OR 5 steel + 2 electronic
-    54 planes      | 85 money OR 40 money + 5 steel OR 7 steel + 3 electronic
-    55 bomb planes | 110 money OR 50 money + 6 steel OR 8 steel + 4 electronic
-    56 ships       | TEMPORARILY NOT IN USE
-
-HELP FOR ME:
-    a few phases for main game and some for war for the Taivan
-    soldiers is making automatic with population in every phase and manual with money
-    winning is a counting a final points from every country attribute
-    if govrep was negative after winning war it gets positive
-    occupation territiries with negative govrep gives positive govrep and backwards
-    more ships - army gets on taivan faster
-    import product makes +1 to govrep (fix dupe)
-    after war need to pay reparations for a few phases
-"""
-
-
-resources_dict = {
-    "железо" : 11,
-    "еда" : 12,
-    "золото" : 13,
-    "нефть" : 14,
-    "камень" : 15,
-    "скот" : 16,
-    "медь" : 17,
-    "кварц" : 18,
-    "дерево" : 19,
-    "сталь" : 21,
-    "электроника" : 22,
-    "стекло" : 23,
-    }
-
-
-def get_resname_by_id(fid: int):
-    for name, id in resources_dict.items():
-        if id == fid:
-            return name
-    return None
-
-
-help_text = """
-/help - показать список команд
-/infomain - основная информация о стране
-/infoarmy - информация об армии
-/infores - информация о ресурсах
-/money - показать баланс
-/countrys - показать список всех стран в игре
-/settax - установить налоговый процент
-/build - построить инфраструктуру
-/sell - продать ресурсы
-/skip - проголосовать за скип фазы
-/handover - Предложение продажи / передачи ресурсов
-/accept - принять торг / передачу ресурсов
-/buy - купить военных и военную технику
-/swiss - положить деньги на счёт в Швейцарском банке
-/corrupt - подкупить ЦИК (+3 репутации, -500 в Швейцарском банке)
-/spy - отослать шпиона (узнать репутацию правительства, -300 в Швейцарском банке)
-/craft - сделать сложные ресурсы
-/war - начать войну с другой страной
-/tasks - просмотреть цели на игру
-"""
-# /hide - разворовать страну и залечь на дно
-
-country_names = [
-    "Гвидония",
-    "Бруния",
-    "Павия",
-    "Камарак",
-    "Лания",
-    "Румак",
-    "ХЗЧП",
-    "ГРПД",
-    "Косторма",
-    "Сорбия",
-    "Итеририум",
-    "Светлогория",
-    "Нефитрон",
-    "Ежиния",
-    "Корь",
-    "Ромия",
-    "Зерния",
-    "ШУЭ"]
-
-
-war_buys = {
-    51: "1: 1 человек + 5 монет\n2: 1 человек + 1 стекло",
-    52: "1: 40 монет\n2: 10 монет + 2 стали\n3: 3 стали + 1 электроника",
-    53: "1: 65 монет\n2: 30 монет + 3 стали\n3: 5 стали + 2 электроники",
-    54: "1: 85 монет\n2: 40 монет + 5 стали\n3: 7 стали + 3 электроники",
-    55: "1: 110 монет\n2: 50 монет + 6 стали\n3: 8 стали + 4 электроники"
-}
 
 
 class War(object):
@@ -247,7 +131,8 @@ class Country(object):
         self.martial_law: bool = False
         self.offered_trade: Trade = None  # done
         shuffle(beta_tasks)
-        self.tasks = beta_tasks[:3]
+        self.tasks = beta_tasks[:task_cnt]
+        self.wonders = []
         # politics
         self.gov_reputation: int = 0  # done
         self.taivan_opinion: tuple = (31, 0)  # opinion and popularity  # LATER
@@ -255,22 +140,22 @@ class Country(object):
         self.fatigue: int = 0
         self.soldiers: int = self.population // 10
         self.temp_soldiers: int = 0
-        self.force_cars: int = 10
-        self.tanks: int = 5
-        self.planes: int = 1
+        self.force_cars: int = 0
+        self.tanks: int = 0
+        self.planes: int = 0
         self.bomb_planes: int = 0
         self.ships: int = 1
         # economy
         self.money: int = money  # done
         self.tax_perc: int = 5  # done
-        self.resources: dict = {**{i : 0 for i in range(11, 20)}, **{i : 0 for i in range(21, 24)}}  # done
+        self.resources: dict = {**{i : 0 for i in range(11, 16+1)}, **{i : 0 for i in range(21, 24)}}  # done
         self.income_res: dict = income_res  # done
         self.sold_costs: dict = sold_costs  # done
         self.infrastructure: int = (self.area + self.population) // 2 // 10 + 3   # done
         # industry
         self.steel: tuple = (11, big_res_money[0])       # (iron_id, money need)
-        self.electronic: tuple = (17, big_res_money[1])  # (copper_id, money need)
-        self.glass: tuple = (18, big_res_money[2])       # (quartz_id, money need)
+        self.electronic: tuple = (15, big_res_money[1])  # (copper_id, money need)
+        self.glass: tuple = (16, big_res_money[2])       # (quartz_id, money need)
         # achievements stats
         self.crafted = 0
         self.wars = 0
@@ -302,13 +187,13 @@ class Country(object):
     def get_info_army(self):
         return f"""
 Военное положение: {"нет" if not self.martial_law else "ДА"}
+Усталость армии: {self.fatigue}
 Военнослужащие: {self.soldiers if self.temp_soldiers == 0 else f'{self.soldiers + self.temp_soldiers} ({self.soldiers} + {self.temp_soldiers})'}
 Военные машины: {self.force_cars}
 Танки: {self.tanks}
 Самолёты: {self.planes}
 Бомбардировщики: {self.bomb_planes}
-Военные корабли: {self.ships}
-"""
+"""  # Военные корабли: {self.ships}
 
     def get_info_res(self):
         tmp1 = "\n".join([f'{get_resname_by_id(key)} : {value}' for key, value in sorted(list(self.resources.items()), key=lambda x: -x[1])])
@@ -430,6 +315,18 @@ class Country(object):
         self.resources[res_id] -= res_cnt
         return True
     
+    def make_wonder(self, wonder):
+        if self.money - wonder.cost_money < 0:
+            return False
+        for k, v in wonder.cost_res.items():
+            if self.resources[k] - v < 0:
+                return False
+        self.money -= wonder.cost_money
+        for k, v in wonder.cost_res.items():
+            self.resources[k] -= v
+        self.wonders.append(wonder)
+        return True
+    
     def add(self, bid, cnt):
         if bid == 51:
             self.soldiers += cnt
@@ -445,10 +342,10 @@ class Country(object):
     def buy(self, bid, opt, cnt):
         if bid == 51:  # soldiers
             if opt == 1:
-                if self.money - 5 * cnt < 0 or self.population - cnt < 0:
+                if self.money - 50 * cnt < 0 or self.population - cnt < 0:
                     return False
                 else:
-                    self.money -= 5 * cnt
+                    self.money -= 50 * cnt
                     self.population -= cnt
                     self.soldiers += cnt
             if opt == 2:
@@ -461,14 +358,14 @@ class Country(object):
             return True
         elif bid in list(range(52, 56)):
             if opt == 1:
-                moneys = {52: 40, 53: 65, 54: 85, 55: 110}
+                moneys = {52: 300, 53: 500, 54: 750, 55: 1000}
                 if self.money - moneys[bid] * cnt < 0:
                     return False
                 self.money -= moneys[bid] * cnt
                 self.add(bid, cnt)
                 return True
             if opt == 2:
-                moneys = {52: 10, 53: 30, 54: 40, 55: 50}
+                moneys = {52: 100, 53: 200, 54: 300, 55: 500}
                 steels = {52: 2, 53: 3, 54: 5, 55: 6}
                 if self.money - moneys[bid] * cnt < 0 or self.resources[21] - steels[bid] * cnt < 0:
                     return False
@@ -486,13 +383,16 @@ class Country(object):
                 self.add(bid, cnt)
                 return True
 
+    def give_start_res(self):
+        for rid, count in self.income_res.items():
+            self.resources[rid] += count
 
     def move(self):
         # money
         self.swiss_bank += round(self.swiss_bank * 0.05)
-        self.money += round(self.population * self.tax_perc // 35)
+        self.money += round(self.population * self.tax_perc)
         # population and govrep
-        self.population += round(self.population * (randrange(80, 120) / 100) / 15) + randrange(0, self.infrastructure)
+        self.population += round(self.population * (randrange(80, 120) / 100) / 15) + randrange(self.infrastructure, 2 * self.infrastructure)
         self.gov_reputation += 1 if self.area * 1.4 >= self.population else -1
         self.gov_reputation += 5 - self.tax_perc
         if self.tax_perc >= 10:
@@ -511,17 +411,17 @@ class Country(object):
     
     def calculate_final_points(self):
         ret = 0
-        ret += max(25, self.area / 8)
-        ret += max(20, self.population / 12)
-        ret += max(15, self.money / 15)
-        ret += max(25, self.swiss_bank / 8)
-        ret -= 30 * self.martial_law
-        ret += max(55, self.gov_reputation * 7.5)
-        ret += max(60, sum([self.war_power()[i] for i in range(2)]) / 85)
-        ret += max(35, sum(list(self.resources.values())) / 25)
-        ret += max(50, self.infrastructure / 1.5)
-        ret += sum([task.weight for task in self.tasks if task.check_func(self)])
-        return round(ret)
+        ret += max(20, (3 * self.area)**0.5)  # mid 30
+        ret += max(20, (2 * self.population)**0.5)  # mid 30
+        ret += 3 * log(max(0.1, self.money))  # mid 20
+        ret += 3 * log(max(0.1, self.swiss_bank))  # mid 20
+        ret -= 30 * self.martial_law  # mid 0
+        ret += - 80 * ((1 / (1 + 2.71**(0.02 * self.gov_reputation))) - 0.5)  # mid 20
+        ret += max(50, self.war_power()[0])
+        ret += - 100 * ((1 / (1 + 2.71**(0.02 * self.infrastructure))) - 0.5)  # mid 30
+        ret += sum([task.weight for task in self.tasks if task.check_func(self)]) # 75 for task
+        ret += len(self.wonders) * 50
+        return int(ret)
 
     def __eq__(self, other):
         return self.name == other.name
