@@ -2,7 +2,7 @@
 
 # all changeble game variables
 
-TESTING = True
+TESTING = False
 TESTING_PLAYERS = 1
 spy_cost = 300
 moves = 12
