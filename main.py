@@ -102,13 +102,19 @@ def main():
         bot.send_message(message.chat.id, 'Все страны в игре:\n' + "\n".join([val.name for val in players.values()]))
 
 
-    @bot.message_handler(commands=['skip', 'next'])
+    @bot.message_handler(commands=['skip'])
     def skip_msg(message):
         skips.add(message.chat.id)
         if len(skips) < len(players):
             bot.send_message(message.chat.id, f"Ваш голос учтён! За скип голосует уже {len(skips)} / {len(players)} игроков.")
         else:
             next_move()
+    
+
+    @bot.message_handler(commands=['next'])
+    def next(message):
+        next_move()
+        bot.send_message(message.chat.id, "Злоупотребление админскими правами успешно!")
 
 
     @bot.message_handler(commands=['handover'])

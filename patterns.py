@@ -32,7 +32,7 @@ class War(object):
     
     def check_full_def(self):
         if self.attacking.fatigue > 2:
-            return False
+            return True
         if self.attacking.war_power()[0] >= self.defensive.war_power()[0]:
             return choices((True, False), weights=(self.attacking.war_power()[0]**3, self.defensive.war_power()[0]**3), k=1)[0]
         else:

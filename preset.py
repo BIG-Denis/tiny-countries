@@ -5,7 +5,7 @@
 TESTING = True
 TESTING_PLAYERS = 1
 spy_cost = 300
-moves = 12
+moves = 6
 task_cnt = 3
 allowed_names = {"Рома", "Шамиль", "Денис"}
 start_wonders = 2
