@@ -4,8 +4,8 @@ from math import log
 from strings import *
 from wonders import *
 from functions import *
-from preset import task_cnt
-from random import randrange, choices
+from preset import task_cnt, factory_growup
+from random import randrange, choices, choice
 
 
 class War(object):
@@ -156,6 +156,9 @@ class Country(object):
         self.steel: tuple = (11, big_res_money[0])       # (iron_id, money need)
         self.electronic: tuple = (15, big_res_money[1])  # (copper_id, money need)
         self.glass: tuple = (16, big_res_money[2])       # (quartz_id, money need)
+        self.create_res = (choice(list(resources_dict.values())), randrange(25, 50))
+        self.able_create_factory = True
+        self.factories = 0
         # achievements stats
         self.crafted = 0
         self.wars = 0
@@ -173,7 +176,7 @@ class Country(object):
 Военное положение: {"нет" if not self.martial_law else "ДА"}
 Репутация правительства: {self.gov_reputation}
 Казна страны: {self.money}
-Счёт в Швейарском банке: {self.swiss_bank}
+Счёт в Швецком банке: {self.swiss_bank}
 Налог: {self.tax_perc}%
 Количество инфраструктуры: {self.infrastructure}
 """
@@ -181,7 +184,7 @@ class Country(object):
     def get_info_money(self):
         return f"""
 Казна страны: {self.money}
-Счёт в Швейарском банке: {self.swiss_bank}
+Счёт в Швецком банке: {self.swiss_bank}
 """
 
     def get_info_army(self):
@@ -342,10 +345,10 @@ class Country(object):
     def buy(self, bid, opt, cnt):
         if bid == 51:  # soldiers
             if opt == 1:
-                if self.money - 50 * cnt < 0 or self.population - cnt < 0:
+                if self.money - 250 * cnt < 0 or self.population - cnt < 0:
                     return False
                 else:
-                    self.money -= 50 * cnt
+                    self.money -= 250 * cnt
                     self.population -= cnt
                     self.soldiers += cnt
             if opt == 2:
@@ -358,14 +361,14 @@ class Country(object):
             return True
         elif bid in list(range(52, 56)):
             if opt == 1:
-                moneys = {52: 300, 53: 500, 54: 750, 55: 1000}
+                moneys = {52: 750, 53: 1200, 54: 2000, 55: 2500}
                 if self.money - moneys[bid] * cnt < 0:
                     return False
                 self.money -= moneys[bid] * cnt
                 self.add(bid, cnt)
                 return True
             if opt == 2:
-                moneys = {52: 100, 53: 200, 54: 300, 55: 500}
+                moneys = {52: 400, 53: 750, 54: 1200, 55: 1500}
                 steels = {52: 2, 53: 3, 54: 5, 55: 6}
                 if self.money - moneys[bid] * cnt < 0 or self.resources[21] - steels[bid] * cnt < 0:
                     return False
@@ -382,6 +385,30 @@ class Country(object):
                 self.resources[22] -= electronics[bid] * cnt
                 self.add(bid, cnt)
                 return True
+    
+    def create_factory(self):
+        if self.resources[self.create_res[0]] - self.create_res[1] < 0:
+            return (False, False)
+        if not self.able_create_factory:
+            return (False, False)
+        self.able_create_factory = False
+        self.factories += 1
+        self.resources[self.create_res[0]] -= self.create_res[1]
+        self.create_res = (choice(list(resources_dict.values())), randrange(25, 50))
+        if choices((True, False), weights=(1, 1), k=1)[0]:
+            for k, v in self.income_res.items():
+                self.income_res[k] = round(v * factory_growup)
+            return (True, True)
+        return (True, False)
+    
+    def change_factory_res(self):
+        if self.money - 10_000 < 0:
+            return False
+        change = self.create_res[0]
+        while self.create_res[0] == change:
+            self.create_res = (choice(list(resources_dict.values())), randrange(25, 50))
+        self.money -= 10_000
+        return True
 
     def give_start_res(self):
         for rid, count in self.income_res.items():
@@ -393,7 +420,6 @@ class Country(object):
         self.money += round(self.population * self.tax_perc)
         # population and govrep
         self.population += round(self.population * (randrange(80, 120) / 100) / 15) + randrange(self.infrastructure, 2 * self.infrastructure)
-        self.gov_reputation += 1 if self.area * 1.4 >= self.population else -1
         self.gov_reputation += 5 - self.tax_perc
         if self.tax_perc >= 10:
             self.gov_reputation -= self.tax_perc
@@ -408,6 +434,8 @@ class Country(object):
         # army
         if self.fatigue:
             self.fatigue -= 1
+        # other
+        self.able_create_factory = True
     
     def calculate_final_points(self):
         ret = 0
@@ -417,10 +445,11 @@ class Country(object):
         ret += 3 * log(max(0.1, self.swiss_bank))  # mid 20
         ret -= 30 * self.martial_law  # mid 0
         ret += - 80 * ((1 / (1 + 2.71**(0.02 * self.gov_reputation))) - 0.5)  # mid 20
-        ret += max(50, self.war_power()[0])
+        ret += - 120 * ((1 / (1 + 2.71**(0.0025 * self.war_power()[0]))) - 0.5)  # mid 30
         ret += - 100 * ((1 / (1 + 2.71**(0.02 * self.infrastructure))) - 0.5)  # mid 30
-        ret += sum([task.weight for task in self.tasks if task.check_func(self)]) # 75 for task
-        ret += len(self.wonders) * 50
+        ret += sum([task.weight for task in self.tasks if task.check_func(self)])  # 75 for task
+        ret += len(self.wonders) * 50  # 50 per wonder
+        ret += self.factories * 20  # 20 per factory
         return int(ret)
 
     def __eq__(self, other):

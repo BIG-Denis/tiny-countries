@@ -1,7 +1,8 @@
 
-from pyexpat.errors import messages
 import re
+import dill
 import json
+import pickle
 import telebot
 
 from preset import *
@@ -13,7 +14,7 @@ def main():
 
     move = 1
     skips = set()
-    players = {}
+    players: dict[int, Country] = {}
     taivan_phase = False
     free_wonders = set()
 
@@ -31,7 +32,7 @@ def main():
     areas = [randrange(100, 400) for _ in range(3)]
     populations = [randrange(150, 500) for _ in range(3)]
     moneys = [randrange(100, 250) for _ in range(3)]
-    income_ress, sold_costss = gen_income_ress(minr=5, maxr=10, mins=3, maxs=12, big_field_k=6, big_sell_k=5, hard_res_k=1.65)
+    income_ress, sold_costss = gen_income_ress(minr=8, maxr=14, mins=5, maxs=14, big_field_k=7, big_sell_k=6, hard_res_k=1.75)
     big_res_moneys = [[randrange(5, 13) for _ in range(3)] for _ in range(3)]
     for i in range(3):
         countrys.append(Country(names[i], areas[i], populations[i], moneys[i], income_ress[i], sold_costss[i], big_res_moneys[i]))
@@ -116,7 +117,7 @@ def main():
         bot.register_next_step_handler(message, handover_2)
 
     def handover_2(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         name = message.text
         for country in players.values():
@@ -130,7 +131,7 @@ def main():
             return
 
     def handover_3(message, country):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         res_id = resources_dict.get(message.text.lower())
         if res_id is not None:
@@ -143,7 +144,7 @@ def main():
             return
 
     def handover_4(message, country, res_id):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             res_count = eval(message.text)
@@ -165,7 +166,7 @@ def main():
             return
 
     def handover_5(message, country, res_id, res_count):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             price = eval(message.text)
@@ -197,7 +198,7 @@ def main():
         bot.register_next_step_handler(message, sell_2)
     
     def sell_2(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         if resources_dict.get(message.text.lower()) is not None:
             res_id = resources_dict[message.text.lower()]
@@ -209,7 +210,7 @@ def main():
             bot.register_next_step_handler(message, sell_2)
     
     def sell_3(message, res_id):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             cnt = eval(message.text)
@@ -255,13 +256,13 @@ def main():
             bot.send_message(message.chat.id, "У вас нет актуальных предложений продажи!")
 
 
-    @bot.message_handler(commands=['swiss'])
+    @bot.message_handler(commands=['sweden'])
     def swiss(message):
         bot.send_message(message.chat.id, "Введите желаемую сумму...")
         bot.register_next_step_handler(message, swiss_final)
 
     def swiss_final(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             ammount = eval(message.text)
@@ -277,7 +278,7 @@ def main():
     @bot.message_handler(commands=['corrupt'])
     def corrupt(message):
         status = players[message.chat.id].corrupt()
-        msg = f"Успешно!\nСчёт на Швейцарскос банке: {players[message.chat.id].swiss_bank}" if status else "Не успешно!"
+        msg = f"Успешно!\nСчёт на Швецком банке: {players[message.chat.id].swiss_bank}" if status else "Не успешно!"
         bot.send_message(message.chat.id, msg)
 
 
@@ -287,17 +288,17 @@ def main():
         bot.register_next_step_handler(message, spy_final)
 
     def spy_final(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         arg = message.text
         if not players[message.chat.id].swiss_bank - spy_cost >= 0:
-            bot.send_message(message.chat.id, "Не хватает денег на счету Швейцарского банка!")
+            bot.send_message(message.chat.id, "Не хватает денег на счету Швецкого банка!")
             return
         for country in players.values():
             if country.name.lower() == arg.lower():
                 players[message.chat.id].spys += 1
                 bot.send_message(message.chat.id,
-                    f"Репутация правительства в Стране {country.name}: {country.gov_reputation}\nСчёт в Швейцарском Банке: {players[message.chat.id].swiss_bank}")
+                    f"Репутация правительства в Стране {country.name}: {country.gov_reputation}\nСчёт в Швецком Банке: {players[message.chat.id].swiss_bank}")
                 players[message.chat.id].swiss_bank -= spy_cost
                 if randrange(0, 100+1) <= 40:
                     bot.send_message(country.chat_id, f"В вашей стране был обнаружен Шпион из страны {players[message.chat.id].name}")
@@ -312,7 +313,7 @@ def main():
         bot.register_next_step_handler(message, set_tax_final)
 
     def set_tax_final(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             tax = eval(message.text)
@@ -329,7 +330,7 @@ def main():
         bot.register_next_step_handler(message, build_final)
 
     def build_final(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             arg = eval(message.text)
@@ -342,11 +343,11 @@ def main():
 
     @bot.message_handler(commands=['craft'])
     def craft_1(message):
-        bot.send_message(message.chat.id, "Какой ресурс вы хотите сделать? (Сталь, электроника, стекло)")
+        bot.send_message(message.chat.id, "Какой ресурс вы хотите сделать?\n(Сталь, электроника, стекло)")
         bot.register_next_step_handler(message, craft_2)
 
     def craft_2(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         arg = message.text.lower()
         res_id = resources_dict.get(arg)
@@ -358,7 +359,7 @@ def main():
             bot.register_next_step_handler(message, craft_2)
 
     def craft_3(message, res_id):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             res_count = eval(message.text)
@@ -393,7 +394,7 @@ def main():
         bot.register_next_step_handler(message, war_2)
     
     def war_2(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         country = get_country_by_name(message.text)
         if country is None:
@@ -433,7 +434,7 @@ def main():
         bot.register_next_step_handler(message, buy_2)
     
     def buy_2(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         if message.text in list(map(str, list(range(51, 56)))):
             bid = eval(message.text)
@@ -444,7 +445,7 @@ def main():
             bot.register_next_step_handler(message, buy_2)
     
     def buy_3(message, bid):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         if message.text in list(map(str, list(range(1, 4)))):
             opt = eval(message.text)
@@ -455,7 +456,7 @@ def main():
             bot.register_next_step_handler(message, buy_3, bid)
     
     def buy_4(message, bid, opt):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         try:
             cnt = eval(message.text)
@@ -487,7 +488,7 @@ def main():
         bot.register_next_step_handler(message, make_wonder_2)
     
     def make_wonder_2(message):
-        if message.text.lower() == "отмена":
+        if message.text.lower() in ("отмена", "cancel"):
             return
         for elem in free_wonders:
             if elem.name.lower() == message.text.lower():
@@ -502,6 +503,34 @@ def main():
         else:
             bot.send_message(message.chat.id, "Такого чуда света не нашлось!\nПопробуйте снова...")
             bot.register_next_step_handler(message, make_wonder_2)
+    
+
+    @bot.message_handler(commands=['factory'])
+    def factory(message):
+        plr = players[message.chat.id]
+        bot.send_message(message.chat.id,
+            f"Для строительства вашей уникальной фабрики вам требуется {get_resname_by_id(plr.create_res[0])} в количестве {plr.create_res[1]}.\n" + \
+            f"В этом ходу вы {'можете' if plr.able_create_factory else 'НЕ МОЖЕТЕ'} создать уникальную фабрику.\n" + 
+            "Для её создания напишите /create")
+
+
+    @bot.message_handler(commands=['create'])
+    def create(message):
+        status = players[message.chat.id].create_factory()
+        if status[0]:
+            if status[1]:
+                bot.send_message(message.chat.id, f"Вы успешно создали уникальную фабрику!\nПроизводство улучшено на {round((factory_growup - 1) * 100)}%!")
+            else:
+                bot.send_message(message.chat.id, f"Вы успешно создали уникальную фабрику!")
+        else:
+            bot.send_message(message.chat.id, "Не удалось создать уникальную фабрику!")
+    
+    
+    @bot.message_handler(commands=['change'])
+    def change(message):
+        status = players[message.chat.id].change_factory_res()
+        msg = "Успешно!" if status else "Не успешно!"
+        bot.send_message(message.chat.id, msg)
     
 
     @bot.message_handler(commands=['give'])
@@ -548,15 +577,16 @@ def main():
     # @bot.message_handler(commands=['dump'])
     # def save(message):
     #     file = open("data.pickle", "wb")
-    #     pickle.dump((move, players), file)
+    #     pickle.dump((move, free_wonders, players), file, fix_imports=True)
     #     file.close()
     #     print("dumped!")
     
     # @bot.message_handler(commands=['load'])
     # def load(message):
-    #     nonlocal move, players
+    #     nonlocal move, free_wonders ,players
     #     file = open("data.pickle", "rb")
-    #     move, players = pickle.load(file)
+    #     move, free_wonders, players = pickle.load(file, fix_imports=True)
+    #     file.close()
     #     print("loaded!")
     
 
