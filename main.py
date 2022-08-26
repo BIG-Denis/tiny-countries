@@ -1,8 +1,6 @@
 
 import re
-import dill
 import json
-import pickle
 import telebot
 
 from preset import *

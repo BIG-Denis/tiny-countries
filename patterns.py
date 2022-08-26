@@ -1,9 +1,10 @@
 
 from tasks import *
-from math import log
 from strings import *
 from wonders import *
 from functions import *
+from copy import deepcopy
+from math import log, ceil
 from preset import task_cnt, factory_growup
 from random import randrange, choices, choice
 
@@ -151,6 +152,7 @@ class Country(object):
         self.resources: dict = {**{i : 0 for i in range(11, 16+1)}, **{i : 0 for i in range(21, 24)}}  # done
         self.income_res: dict = income_res  # done
         self.sold_costs: dict = sold_costs  # done
+        self.std_sold_costs: dict = deepcopy(self.sold_costs)
         self.infrastructure: int = (self.area + self.population) // 2 // 10 + 3   # done
         # industry
         self.steel: tuple = (11, big_res_money[0])       # (iron_id, money need)
@@ -436,7 +438,17 @@ class Country(object):
             self.fatigue -= 1
         # other
         self.able_create_factory = True
-    
+        # sold costs
+        mkf = min(12, max(-25, ceil(self.gov_reputation / 5)))
+        if mkf >= 0:
+            kf = 1 + 0.05 * mkf
+        else:
+            kf = 1 + 0.02 * mkf
+        print(mkf, kf)
+        for k in self.sold_costs.keys():
+            self.sold_costs[k] = round(self.std_sold_costs[k] * kf)
+
+
     def calculate_final_points(self):
         ret = 0
         ret += max(20, (3 * self.area)**0.5)  # mid 30
